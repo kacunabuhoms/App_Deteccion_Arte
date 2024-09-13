@@ -2,12 +2,10 @@ import streamlit as st
 from PIL import Image
 import torch
 from torchvision import models, transforms
-import requests
-import io
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2 import service_account
-import gspread
+import io
 
 # Initialize the device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -26,24 +24,28 @@ transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-# Function to download the model file from GitHub
-def download_model_from_github(url):
-    r = requests.get(url, stream=True)
-    if r.status_code == 200:
-        with open('model.pth', 'wb') as f:
-            f.write(r.content)
-        return 'model.pth'
-    return None
+# Google Drive API Setup
+SCOPES = ['https://www.googleapis.com/auth/drive']
+credentials = service_account.Credentials.from_service_account_info(
+    st.secrets["gcp_service_account"], scopes=SCOPES)
+service = build('drive', 'v3', credentials=credentials)
 
-# Function to load the model
+# Function to load the model from Google Drive
 @st.cache(allow_output_mutation=True)
 def load_model():
-    model_path = download_model_from_github('https://github.com/user/repo/path/to/model.pth?raw=true')
+    model_file_id = '1-3_-XOrS7BUm-YsBgj5uzDzTNadx04qG'  # Replace with your model file ID
+    request = service.files().get_media(fileId=model_file_id)
+    fh = io.BytesIO()
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while not done:
+        _, done = downloader.next_chunk()
+    fh.seek(0)
     model = models.resnet50()
     num_ftrs = model.fc.in_features
     num_classes = len(class_names)
     model.fc = torch.nn.Linear(num_ftrs, num_classes)
-    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.load_state_dict(torch.load(io.BytesIO(fh.read()), map_location=device))
     model.eval()
     return model
 
@@ -73,19 +75,14 @@ if image:
     # Display prediction
     st.write(f"Predicted Class: {predicted_class} (Probability: {predicted_probability:.4f})")
 
-# Google Drive credentials and logo fetching
-SCOPES = ['https://www.googleapis.com/auth/drive']
-creds = service_account.Credentials.from_service_account_info(
-    st.secrets["gcp_service_account"], scopes=SCOPES)
-service = build('drive', 'v3', credentials=creds)
-file_id = 'your_file_id_here'  # Replace with your logo file ID
-request = service.files().get_media(fileId=file_id)
-fh = io.BytesIO()
-downloader = MediaIoBaseDownload(fh, request)
+# Load and display the logo from Google Drive
+logo_file_id = '1xIIzJsNCfuTpxAgXehy2r7QVEIsnl7Ks'  # Replace with your logo file ID
+logo_request = service.files().get_media(fileId=logo_file_id)
+fh_logo = io.BytesIO()
+logo_downloader = MediaIoBaseDownload(fh_logo, logo_request)
 done = False
 while not done:
-    status, done = downloader.next_chunk()
-
-fh.seek(0)
-logo_image = Image.open(fh)
+    _, done = logo_downloader.next_chunk()
+fh_logo.seek(0)
+logo_image = Image.open(fh_logo)
 st.image(logo_image, caption='Company Logo')
