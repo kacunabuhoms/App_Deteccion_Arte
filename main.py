@@ -44,15 +44,14 @@ st.logo(image)
 
 #------------------------
 
-# Assuming 'service' setup is done outside this snippet based on your previous setup
+import torch
 
-# Global definition
-class_names = {'CLUSTER': 0, 'DANGLER': 1, 'KIT COPETE': 2, 'KIT DANG BOTADERO': 3,
-               'MANTELETA': 4, 'MENU': 5, 'MP': 6, 'PC': 7, 'POSTER': 8,
-               'PRECIADOR': 9, 'REFRICALCO': 10, 'STICKER': 11, 'STOPPER': 12, 'V UN': 13}
+# Define the device globally
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 @st.cache(allow_output_mutation=True)
-def load_model_from_google_drive(file_id):
+def load_model_from_google_drive(file_id, class_names):
+    # Ensure service setup for Google Drive API is here or passed appropriately
     request = service.files().get_media(fileId=file_id)
     fh = io.BytesIO()
     downloader = MediaIoBaseDownload(fh, request)
@@ -61,17 +60,18 @@ def load_model_from_google_drive(file_id):
         _, done = downloader.next_chunk()
     fh.seek(0)
     
+    # Load and set up the model
     model = models.resnet50(pretrained=False)
     num_ftrs = model.fc.in_features
-    model.fc = torch.nn.Linear(num_ftrs, len(class_names))  # This now recognizes `class_names`
-    model.load_state_dict(torch.load(fh, map_location=torch.device('cpu')))
+    model.fc = torch.nn.Linear(num_ftrs, len(class_names))
+    model.load_state_dict(torch.load(fh, map_location=device))  # Ensure 'device' is known here
     model.eval()
     return model
 
-
-# Your specific model file ID on Google Drive
+# Make sure to define 'class_names' appropriately before this point
 model_file_id = '1-3_-XOrS7BUm-YsBgj5uzDzTNadx04qG'
-model = load_model_from_google_drive(model_file_id).to(device)
+model = load_model_from_google_drive(model_file_id, class_names).to(device)  # Here 'device' must be defined
+
 
 # Example usage in Streamlit
 if st.button('Load Model'):
