@@ -179,7 +179,7 @@ if image:
     # Convertir BytesIO a PIL Image y luego a PNG
     pil_image = Image.open(image).convert("RGB")
     buffer = io.BytesIO()
-    pil_image.save(buffer, format="PNG")
+    pil_image.save(buffer, format="png")
     buffer.seek(0)
     pil_image_png = Image.open(buffer)
 
