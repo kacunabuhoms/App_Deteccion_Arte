@@ -114,26 +114,40 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import io
 
-# Configuraciones previas (diccionarios y transformaciones)
-class_names = {...}  # Tu diccionario de clases
+# Diccionario de clases
+class_names = {'CLUSTER': 0, 'DANGLER': 1, 'KIT COPETE': 2, 'KIT DANG BOTADERO': 3,
+               'MANTELETA': 4, 'MENU': 5, 'MP': 6, 'PC': 7, 'POSTER': 8,
+               'PRECIADOR': 9, 'REFRICALCO': 10, 'STICKER': 11, 'STOPPER': 12, 'V UN': 13}
+
+# Inversión del diccionario para obtener nombres por índice
 index_to_class = {v: k for k, v in class_names.items()}
 
+# Función para agregar padding y hacer la imagen cuadrada
+def add_padding(img, size):
+    old_width, old_height = img.size
+    longest_edge = max(old_width, old_height)
+    horizontal_padding = (longest_edge - old_width) / 2
+    vertical_padding = (longest_edge - old_height) / 2
+    padded_img = Image.new("RGB", (longest_edge, longest_edge), color=(0, 0, 0))
+    padded_img.paste(img, (int(horizontal_padding), int(vertical_padding)))
+    return padded_img.resize((size, size), Image.LANCZOS)
+
+# Transformaciones
 transform = transforms.Compose([
     transforms.Lambda(lambda img: add_padding(img, 256)),
     transforms.CenterCrop(224),
-    transforms.ToTensor(),
+    transforms.PILToTensor(),
+    transforms.ConvertImageDtype(torch.float32),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-# Tu modelo ya cargado, asumiendo que `model` es global y accesible aquí
+# Supongamos que el modelo ya está cargado en 'model'
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)
 
+# Función para predecir y mostrar la imagen y la tabla de probabilidades lado a lado
 def predict_and_show(pil_image):
-    """Función para predecir y mostrar resultados directamente en Streamlit."""
-    # Convertir PIL Image a tensor
     image_tensor = transform(pil_image).unsqueeze(0).to(device)
-
     with torch.no_grad():
         output = model(image_tensor)
         probabilities = torch.nn.functional.softmax(output[0], dim=0)
@@ -141,24 +155,34 @@ def predict_and_show(pil_image):
         predicted_class_name = index_to_class[predicted_class_index]
         predicted_probability = probabilities[predicted_class_index].item()
 
-    # Mostrar la imagen en Streamlit
-    st.image(pil_image, caption=f'Clase Predicha: {predicted_class_name} (Prob: {predicted_probability:.4f})')
+    # Configurar el plot para mostrar imagen y tabla lado a lado
+    fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+    ax[0].imshow(pil_image)
+    ax[0].set_title(f'Clase Predicha: {predicted_class_name} (Prob: {predicted_probability:.4f})')
+    ax[0].axis('off')
 
-    # Crear DataFrame para mostrar las probabilidades
-    data = {
-        'Clase': [index_to_class[i] for i in range(len(probabilities))],
-        'Probabilidad': [f"{prob:.6f}" for prob in probabilities]
-    }
+    data = {'Clase': [index_to_class[i] for i in range(len(probabilities))],
+            'Probabilidad': [f"{prob:.6f}" for prob in probabilities]}
     df = pd.DataFrame(data)
-    st.dataframe(df)
+    ax[1].axis('off')
+    table = ax[1].table(cellText=df.values, colLabels=df.columns, cellLoc='center', loc='center')
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1, 1.5)
+    plt.show()
 
 # Captura de imagen desde la cámara
 image = st.camera_input("Captura una imagen")
 if image:
     st.success("Imagen capturada")
 
-    # Convertir BytesIO a PIL Image
+    # Convertir BytesIO a PIL Image y luego a PNG
     pil_image = Image.open(image).convert("RGB")
+    buffer = io.BytesIO()
+    pil_image.save(buffer, format="PNG")
+    buffer.seek(0)
+    pil_image_png = Image.open(buffer)
 
     # Llamar a la función de predicción y mostrar
-    predict_and_show(pil_image)
+    predict_and_show(pil_image_png)
+
