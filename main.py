@@ -27,7 +27,7 @@ if image_data is not None:
     
     # Convert image to PNG format and store it as bytes in memory
     img_byte_arr = io.BytesIO()
-    image.save(img_byte_arr, format='PNG')
+    image.save(img_byte_arr, format='png')
     img_byte_arr = img_byte_arr.getvalue()
     
     # Store the PNG byte array in session state
@@ -36,7 +36,7 @@ if image_data is not None:
 
     # Display the image from the PNG byte array
     st.image(image, caption='Captured Image')
-
+ 
 # Processing the image for CNN model input
 if 'captured_image_png' in st.session_state:
     # Load the PNG byte array as an image
