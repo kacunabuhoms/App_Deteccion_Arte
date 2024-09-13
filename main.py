@@ -109,8 +109,6 @@ import torch
 from torchvision import transforms
 import io
 
-model.eval()
-
 # Define the transformation
 def add_padding(img, size):
     old_width, old_height = img.size
