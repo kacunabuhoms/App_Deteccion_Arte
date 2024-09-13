@@ -2,7 +2,7 @@ import streamlit as st
 
 st.title("Deteccion de Arte")
 
-image = st.capture_image("Ingrese imagen")
+image = st.camera_input("Capturar imagen")
 
 
 if image:
