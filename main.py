@@ -44,7 +44,9 @@ st.logo(image)
 
 #------------------------
 
-import torch
+class_names = {'CLUSTER': 0, 'DANGLER': 1, 'KIT COPETE': 2, 'KIT DANG BOTADERO': 3,
+               'MANTELETA': 4, 'MENU': 5, 'MP': 6, 'PC': 7, 'POSTER': 8,
+               'PRECIADOR': 9, 'REFRICALCO': 10, 'STICKER': 11, 'STOPPER': 12, 'V UN': 13}
 
 # Define the device globally
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
