@@ -80,16 +80,13 @@ def load_model_from_google_drive(file_id, class_names):
     return model
 
 # Make sure to define 'class_names' appropriately before this point
-model_file_id = '1-3_-XOrS7BUm-YsBgj5uzDzTNadx04qG'
-model = load_model_from_google_drive(model_file_id, class_names).to(device)  # Here 'device' must be defined
-
 
 # Example usage in Streamlit
 if st.button('Load Model'):
+    model_file_id = '1-3_-XOrS7BUm-YsBgj5uzDzTNadx04qG'
+    model = load_model_from_google_drive(model_file_id, class_names).to(device)  # Here 'device' must be defined
     st.write("Model loaded successfully!")
     # You can add more functionality here to utilize the model
-
-
 
 
 
@@ -109,20 +106,12 @@ st.title("Demo de detección de arte")
 import streamlit as st
 from PIL import Image
 import torch
-from torchvision import models, transforms
-import matplotlib.pyplot as plt
-import pandas as pd
+from torchvision import transforms
 import io
 
-# Diccionario de clases
-class_names = {'CLUSTER': 0, 'DANGLER': 1, 'KIT COPETE': 2, 'KIT DANG BOTADERO': 3,
-               'MANTELETA': 4, 'MENU': 5, 'MP': 6, 'PC': 7, 'POSTER': 8,
-               'PRECIADOR': 9, 'REFRICALCO': 10, 'STICKER': 11, 'STOPPER': 12, 'V UN': 13}
+model.eval()
 
-# Inversión del diccionario para obtener nombres por índice
-index_to_class = {v: k for k, v in class_names.items()}
-
-# Función para agregar padding y hacer la imagen cuadrada
+# Define the transformation
 def add_padding(img, size):
     old_width, old_height = img.size
     longest_edge = max(old_width, old_height)
@@ -132,7 +121,6 @@ def add_padding(img, size):
     padded_img.paste(img, (int(horizontal_padding), int(vertical_padding)))
     return padded_img.resize((size, size), Image.LANCZOS)
 
-# Transformaciones
 transform = transforms.Compose([
     transforms.Lambda(lambda img: add_padding(img, 256)),
     transforms.CenterCrop(224),
@@ -141,48 +129,44 @@ transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-# Supongamos que el modelo ya está cargado en 'model'
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model.to(device)
+st.title('Image Classification App')
 
-# Función para predecir y mostrar la imagen y la tabla de probabilidades lado a lado
-def predict_and_show(pil_image):
-    image_tensor = transform(pil_image).unsqueeze(0).to(device)
-    with torch.no_grad():
-        output = model(image_tensor)
+# Use st.camera_input to capture an image
+captured_image = st.camera_input("Take a picture")
+
+if captured_image is not None:
+    st.image(captured_image, caption='Captured Image', use_column_width=True)
+    
+    # Button to trigger prediction
+    if st.button('Classify Image'):
+        # Convert the image to PNG format using PIL
+        image = Image.open(captured_image)
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
+
+        # Reload the image from the byte array
+        image = Image.open(io.BytesIO(img_byte_arr))
+
+        st.write("Classifying...")
+
+        # Transform the image to be compatible with your model
+        input_tensor = transform(image)
+        input_batch = input_tensor.unsqueeze(0)  # Create a mini-batch as expected by the model
+
+        # Move the input and model to GPU for speed if available
+        if torch.cuda.is_available():
+            input_batch = input_batch.to('cuda')
+            model.to('cuda')
+
+        with torch.no_grad():
+            output = model(input_batch)
+
+        # The output has unnormalized scores. To get probabilities, you can run a softmax on it.
         probabilities = torch.nn.functional.softmax(output[0], dim=0)
-        predicted_class_index = probabilities.argmax().item()
-        predicted_class_name = index_to_class[predicted_class_index]
-        predicted_probability = probabilities[predicted_class_index].item()
 
-    # Configurar el plot para mostrar imagen y tabla lado a lado
-    fig, ax = plt.subplots(1, 2, figsize=(12, 6))
-    ax[0].imshow(pil_image)
-    ax[0].set_title(f'Clase Predicha: {predicted_class_name} (Prob: {predicted_probability:.4f})')
-    ax[0].axis('off')
-
-    data = {'Clase': [index_to_class[i] for i in range(len(probabilities))],
-            'Probabilidad': [f"{prob:.6f}" for prob in probabilities]}
-    df = pd.DataFrame(data)
-    ax[1].axis('off')
-    table = ax[1].table(cellText=df.values, colLabels=df.columns, cellLoc='center', loc='center')
-    table.auto_set_font_size(False)
-    table.set_fontsize(10)
-    table.scale(1, 1.5)
-    plt.show()
-
-# Captura de imagen desde la cámara
-image = st.camera_input("Captura una imagen")
-if image:
-    st.success("Imagen capturada")
-
-    # Convertir BytesIO a PIL Image y luego a PNG
-    pil_image = Image.open(image).convert("RGB")
-    buffer = io.BytesIO()
-    pil_image.save(buffer, format="png")
-    buffer.seek(0)
-    pil_image_png = Image.open(buffer)
-
-    # Llamar a la función de predicción y mostrar
-    predict_and_show(pil_image_png)
+        # Show the top 5 categories
+        top5_prob, top5_catid = torch.topk(probabilities, 5)
+        for i in range(top5_prob.size(0)):
+            st.write(f"{top5_prob[i].item():.6f} : {class_names[top5_catid[i]]}")  # 'categories' should be the list of class names
 
