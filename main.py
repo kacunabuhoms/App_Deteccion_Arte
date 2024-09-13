@@ -12,6 +12,9 @@ import torch
 from torchvision import models, transforms
 
 
+#------------------------
+# Credenciales de Google API
+#------------------------
 
 tz = pytz.timezone('America/Monterrey')
 
@@ -42,6 +45,12 @@ image = Image.open(fh)
 # Mostrar la imagen en Streamlit
 st.logo(image)
 
+
+
+
+
+#------------------------
+# Carga del modelo
 #------------------------
 
 class_names = {'CLUSTER': 0, 'DANGLER': 1, 'KIT COPETE': 2, 'KIT DANG BOTADERO': 3,
@@ -80,3 +89,76 @@ if st.button('Load Model'):
     st.write("Model loaded successfully!")
     # You can add more functionality here to utilize the model
 
+
+
+
+
+#------------------------
+# Captura de imagen
+#------------------------
+
+st.title("Demo de detección de arte")
+
+
+
+
+
+#------------------------
+# 
+#------------------------
+import streamlit as st
+from PIL import Image
+import torch
+from torchvision import models, transforms
+import matplotlib.pyplot as plt
+import pandas as pd
+import io
+
+# Configuraciones previas (diccionarios y transformaciones)
+class_names = {...}  # Tu diccionario de clases
+index_to_class = {v: k for k, v in class_names.items()}
+
+transform = transforms.Compose([
+    transforms.Lambda(lambda img: add_padding(img, 256)),
+    transforms.CenterCrop(224),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
+
+# Tu modelo ya cargado, asumiendo que `model` es global y accesible aquí
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
+
+def predict_and_show(pil_image):
+    """Función para predecir y mostrar resultados directamente en Streamlit."""
+    # Convertir PIL Image a tensor
+    image_tensor = transform(pil_image).unsqueeze(0).to(device)
+
+    with torch.no_grad():
+        output = model(image_tensor)
+        probabilities = torch.nn.functional.softmax(output[0], dim=0)
+        predicted_class_index = probabilities.argmax().item()
+        predicted_class_name = index_to_class[predicted_class_index]
+        predicted_probability = probabilities[predicted_class_index].item()
+
+    # Mostrar la imagen en Streamlit
+    st.image(pil_image, caption=f'Clase Predicha: {predicted_class_name} (Prob: {predicted_probability:.4f})')
+
+    # Crear DataFrame para mostrar las probabilidades
+    data = {
+        'Clase': [index_to_class[i] for i in range(len(probabilities))],
+        'Probabilidad': [f"{prob:.6f}" for prob in probabilities]
+    }
+    df = pd.DataFrame(data)
+    st.dataframe(df)
+
+# Captura de imagen desde la cámara
+image = st.camera_input("Captura una imagen")
+if image:
+    st.success("Imagen capturada")
+
+    # Convertir BytesIO a PIL Image
+    pil_image = Image.open(image).convert("RGB")
+
+    # Llamar a la función de predicción y mostrar
+    predict_and_show(pil_image)
