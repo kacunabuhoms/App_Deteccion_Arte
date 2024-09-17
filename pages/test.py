@@ -7,6 +7,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from PIL import Image
 from torchvision.transforms import v2 as transforms
+from torchvision import models
 
 # Diccionario de clases
 class_names = {'CLUSTER': 0, 'DANGLER': 1, 'KIT COPETE': 2, 'KIT DANG BOTADERO': 3,
@@ -81,7 +82,7 @@ def load_model(model_path):
     model.eval()
     return model
 
-model_path = "Weights_ResNet50_Full layers_v3.pth"
+model_path = "Full_ResNet50_Ful layers_v3.pth"
 model = load_model(model_path)
 
 
