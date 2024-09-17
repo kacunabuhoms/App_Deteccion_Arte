@@ -1,6 +1,7 @@
 import streamlit as st
 import gspread
 import io
+import os
 import torch
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -66,13 +67,22 @@ st.logo(image)
 # LOAD MODEL --------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------------
 def load_model():
+    # Update with the correct relative path from your Streamlit app's location
     model_path = '../../../models/Full_ResNet50_Ful_layers_v3.pth'
-    model = torch.load(model_path, map_location=torch.device('cpu'))
-    model.eval()  # Set to evaluation mode
-    return model
+    abs_path = os.path.abspath(model_path)
+
+    # Debugging output
+    print("Absolute path:", abs_path)
+    print("File exists:", os.path.exists(abs_path))
+
+    if os.path.exists(abs_path):
+        model = torch.load(abs_path, map_location=torch.device('cpu'))
+        model.eval()
+        return model
+    else:
+        raise FileNotFoundError(f"Model file not found at {abs_path}")
 
 model = load_model()
-
 
 
 
