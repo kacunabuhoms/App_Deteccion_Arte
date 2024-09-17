@@ -4,6 +4,49 @@ import io
 import torch
 from torchvision import models, transforms
 
+#--------------------------------------------------------------------------------------------------------
+# PAGE CONFIGURATION ------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------
+
+st.title("Demo de detección de arte")
+
+# Configuración de gspread para conectar con Google Sheets
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+credentials = service_account.Credentials.from_service_account_info(
+    st.secrets["gcp_service_account"],
+    scopes=SCOPES
+)
+# Usar las credenciales para autenticarse con Google Sheets
+gc = gspread.authorize(credentials)
+sh = gc.open_by_key('1D8V_C7tUZ4qiNlZiba96a3jMDPlQ-tMFPTfuuJ3dEAw')
+
+# Construye el servicio de la API de Google Drive
+service = build('drive', 'v3', credentials=credentials)
+
+# ID del archivo en Google Drive que deseas descargar
+file_id = '1xIIzJsNCfuTpxAgXehy2r7QVEIsnl7Ks'
+request = service.files().get_media(fileId=file_id)
+fh = io.BytesIO()
+downloader = MediaIoBaseDownload(fh, request)
+done = False
+while done is False:
+    status, done = downloader.next_chunk()
+
+# Utiliza PIL para abrir la imagen desde el stream de bytes
+fh.seek(0)
+image = Image.open(fh)
+
+# Mostrar la imagen en Streamlit
+st.logo(image)
+
+
+
+
+
+#--------------------------------------------------------------------------------------------------------
+# PAGE CONFIGURATION ------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------
+
 # Dictionary of classes
 class_names = {
     'CLUSTER': 0, 'DANGLER': 1, 'KIT COPETE': 2, 'KIT DANG BOTADERO': 3,
