@@ -77,7 +77,7 @@ def load_model(model_path):
     num_ftrs = model.fc.in_features
     num_classes = len(class_names)  # Ajustar al número de clases
     model.fc = torch.nn.Linear(num_ftrs, num_classes)
-    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.load_state_dict(torch.load(model_path, map_location="cpu"))
     model.eval()
     return model
 
