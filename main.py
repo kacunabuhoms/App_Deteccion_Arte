@@ -71,6 +71,7 @@ file_names = [file['name'] for file in files]
 selected_file = st.selectbox('Select a file:', file_names)
 
 # Function to load .pth file into PyTorch model
+@st.cache_resource
 def load_model(file_id):
     request = service.files().get_media(fileId=file_id)
     fh = io.BytesIO()
@@ -115,31 +116,3 @@ transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-st.write("Take a photo to classify:")
-captured_image = st.camera_input("Click the button to capture an image:")
-
-if captured_image:
-    # Convert the captured image to a PIL Image
-    image_bytes = captured_image.getvalue()
-    pil_image = Image.open(io.BytesIO(image_bytes))
-
-    # Display the captured image
-    st.image(pil_image, caption='Captured Image', use_column_width=True)
-
-    # Transform the image for the model
-    input_tensor = transform(pil_image)
-    input_batch = input_tensor.unsqueeze(0)  # Create a mini-batch as expected by the model
-
-    if st.button('Classify Image'):
-        # Move the input and model to GPU for speed if available
-        if torch.cuda.is_available():
-            input_batch = input_batch.to('cuda')
-            model.to('cuda')
-
-        with torch.no_grad():
-            output = model(input_batch)
-            # Assuming the model returns a tensor of category probabilities
-            probabilities = torch.nn.functional.softmax(output[0], dim=0)
-            # Display the top category
-            top_prob, top_catid = torch.max(probabilities, dim=0)
-            st.write(f'Predicted Category: {top_catid}, Probability: {top_prob.item()}')
