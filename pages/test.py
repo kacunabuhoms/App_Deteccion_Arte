@@ -3,9 +3,6 @@ from PIL import Image
 import io
 import torch
 from torchvision import models, transforms
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload
 
 # Dictionary of classes
 class_names = {
@@ -14,22 +11,7 @@ class_names = {
     'PRECIADOR': 9, 'REFRICALCO': 10, 'STICKER': 11, 'STOPPER': 12, 'V UN': 13
 }
 
-# Load the model using Google Drive API
-def authenticate_google_drive():
-    creds = Credentials.from_authorized_user_file('path_to_credentials.json', scopes=['https://www.googleapis.com/auth/drive'])
-    service = build('drive', 'v3', credentials=creds)
-    return service
-
-def download_file_from_drive(service, file_id):
-    request = service.files().get_media(fileId=file_id)
-    fh = io.BytesIO()
-    downloader = MediaIoBaseDownload(fh, request)
-    done = False
-    while not done:
-        status, done = downloader.next_chunk()
-    fh.seek(0)
-    return fh
-
+# Load the model
 def load_model(model_file):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = models.resnet50()
@@ -77,9 +59,8 @@ if camera_image is not None:
     st.image(image, caption='Captured Image', use_column_width=True)
 
     st.write("Loading model and classifying image...")
-    service = authenticate_google_drive()
-    model_file = download_file_from_drive(service, 'your_model_file_id_on_drive')
-    model, device = load_model(model_file)
+    # Assume the model file is already handled by your API connection setup
+    model, device = load_model('/content/drive/MyDrive/Proyectos/Deteccion Arte/CNN/ResNet50/Modelo/Full_ResNet50_Ful layers_v3.pth')  # Ensure you adjust this path
     
     label = predict_image(image, model, device)
     st.write(f'Prediction: {label}')
