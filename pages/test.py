@@ -56,14 +56,7 @@ st.logo(image)
 #--------------------------------------------------------------------------------------------------------
 # TAKE THE IMAGE ----------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------------
-st.title("Real-Time Image Classification with ResNet50")
-# Capture an image from the camera
-captured_image = st.camera_input("Take a picture")
 
-# Convert the captured image to a PIL Image
-if captured_image is not None:
-    image = Image.open(io.BytesIO(captured_image.getvalue()))
-    st.image(image, caption='Captured Image')
 
 
 
@@ -72,18 +65,14 @@ if captured_image is not None:
 #--------------------------------------------------------------------------------------------------------
 # LOAD MODEL --------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------------
-# Cargar el modelo
-def load_model(model_path):
-    model = models.resnet50()
-    num_ftrs = model.fc.in_features
-    num_classes = len(class_names)  # Ajustar al número de clases
-    model.fc = torch.nn.Linear(num_ftrs, num_classes)
-    model.load_state_dict(torch.load(model_path, map_location="cpu"))
-    model.eval()
+def load_model():
+    model_path = 'path_to_your_model.pth'
+    model = torch.load(model_path, map_location=torch.device('cpu'))
+    model.eval()  # Set to evaluation mode
     return model
 
-model_path = "Full_ResNet50_Ful layers_v3.pth"
-model = load_model(model_path)
+model = load_model()
+
 
 
 
@@ -91,8 +80,6 @@ model = load_model(model_path)
 #--------------------------------------------------------------------------------------------------------
 # PROCESS IMAGE -----------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------------
-from torchvision import transforms
-
 # Función para agregar padding y hacer la imagen cuadrada
 def add_padding(img, size):
     old_width, old_height = img.size
@@ -104,18 +91,15 @@ def add_padding(img, size):
     return padded_img.resize((size, size), Image.LANCZOS)
 
 # Transformaciones
-transform = transforms.Compose([
-    transforms.Lambda(lambda img: add_padding(img, 256)),
-    transforms.CenterCrop(224),
-    transforms.PILToTensor(),
-    transforms.ConvertImageDtype(torch.float32),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
-
-# Apply transformation
-if captured_image is not None:
-    input_tensor = transform(image)
-    input_batch = input_tensor.unsqueeze(0)  # Create a mini-batch as expected by the model
+def transform_image(image):
+    transform = transforms.Compose([
+        transforms.Lambda(lambda img: add_padding(img, 256)),
+        transforms.CenterCrop(224),
+        transforms.PILToTensor(),
+        transforms.ConvertImageDtype(torch.float32),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    return transform(image).unsqueeze(0)
 
 
 
@@ -124,10 +108,21 @@ if captured_image is not None:
 #--------------------------------------------------------------------------------------------------------
 # CLASSIFY ----------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------------
-if captured_image is not None:
+def predict(image, model):
+    tensor = transform_image(image)
     with torch.no_grad():
-        output = model(input_batch)
-        # Assuming your model outputs a category index
-        predicted_category = output.argmax(1).item()
-        st.write(f'Predicted Category: {predicted_category}')
+        outputs = model(tensor)
+        _, predicted = torch.max(outputs, 1)
+    return predicted.item()  # Assuming classification task
+
+
+st.title('Image Classification with PyTorch')
+
+uploaded_file = st.file_uploader("Choose an image...", type="png")
+if uploaded_file is not None:
+    image = Image.open(uploaded_file)
+    st.image(image, caption='Uploaded Image', use_column_width=True)
+    st.write("Classifying...")
+    label = predict(image, model)
+    st.write(f'Prediction: {label}')
 
