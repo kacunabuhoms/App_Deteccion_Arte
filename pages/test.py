@@ -1,8 +1,12 @@
 import streamlit as st
-from PIL import Image
+import gspread
 import io
 import torch
-from torchvision import models, transforms
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
+from PIL import Image
+from torchvision.transforms import v2 as transforms
 
 # Diccionario de clases
 class_names = {'CLUSTER': 0, 'DANGLER': 1, 'KIT COPETE': 2, 'KIT DANG BOTADERO': 3,
