@@ -6,6 +6,9 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from PIL import Image
+from torchvision.transforms import v2 as transforms
+
+
 
 #--------------------------------------------------------------------------------------------------------
 # PAGE CONFIGURATION ------------------------------------------------------------------------------------
@@ -42,12 +45,15 @@ image = Image.open(fh)
 # Mostrar la imagen en Streamlit
 st.logo(image)
 
+
+
+
+
 #--------------------------------------------------------------------------------------------------------
 # LOADING THE MODEL -------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------------
-FOLDER_ID = "1e89Hs6yvZWZ-4Rz0cmIc07GV3mYrBgWS"  # Your Google Drive Folder ID
 
-st.text("Modelos disponibles:")
+FOLDER_ID = "1e89Hs6yvZWZ-4Rz0cmIc07GV3mYrBgWS"  # Your Google Drive Folder ID
 
 # Function to list files
 def list_files(service, folder_id):
@@ -81,3 +87,59 @@ if st.button('Load Model'):
     file_id = next(file['id'] for file in files if file['name'] == selected_file)
     model = load_model(file_id)
     st.write("Model loaded successfully!")
+
+
+
+
+
+#--------------------------------------------------------------------------------------------------------
+# TAKING THE PHOTO --------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------
+
+# Function: Add padding to the image
+def add_padding(img, size):
+    old_width, old_height = img.size
+    longest_edge = max(old_width, old_height)
+    horizontal_padding = (longest_edge - old_width) / 2
+    vertical_padding = (longest_edge - old_height) / 2
+    padded_img = Image.new("RGB", (longest_edge, longest_edge), color=(0, 0, 0))
+    padded_img.paste(img, (int(horizontal_padding), int(vertical_padding)))
+    return padded_img.resize((size, size), Image.LANCZOS)
+
+# Define image transformations
+transform = transforms.Compose([
+    transforms.Lambda(lambda img: add_padding(img, 256)),
+    transforms.CenterCrop(224),
+    transforms.PILToTensor(),
+    transforms.ConvertImageDtype(torch.float32),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
+
+st.write("Take a photo to classify:")
+captured_image = st.camera_input("Click the button to capture an image:")
+
+if captured_image:
+    # Convert the captured image to a PIL Image
+    image_bytes = captured_image.getvalue()
+    pil_image = Image.open(io.BytesIO(image_bytes))
+
+    # Display the captured image
+    st.image(pil_image, caption='Captured Image', use_column_width=True)
+
+    # Transform the image for the model
+    input_tensor = transform(pil_image)
+    input_batch = input_tensor.unsqueeze(0)  # Create a mini-batch as expected by the model
+
+    if st.button('Classify Image'):
+        # Move the input and model to GPU for speed if available
+        if torch.cuda.is_available():
+            input_batch = input_batch.to('cuda')
+            model.to('cuda')
+
+        with torch.no_grad():
+            output = model(input_batch)
+            # Assuming the model returns a tensor of category probabilities
+            probabilities = torch.nn.functional.softmax(output[0], dim=0)
+            # Display the top category
+            top_prob, top_catid = torch.max(probabilities, dim=0)
+            st.write(f'Predicted Category: {top_catid}, Probability: {top_prob.item()}')
