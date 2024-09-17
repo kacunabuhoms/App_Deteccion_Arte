@@ -1,57 +1,41 @@
-import os
-import torch
-import matplotlib.pyplot as plt
-import pandas as pd
 import streamlit as st
-from torchvision import models, transforms
-from torchvision.transforms import v2 as transforms
-from PIL import Image
-
-
-# Establecer el dispositivo
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-import streamlit as st
-from PIL import Image
+import gspread
 import io
-import numpy as np
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
+from PIL import Image
 
-st.title("Capture and Process Image for CNN")
 
-# Capture the image from the user
-image_data = st.camera_input("Take a picture")
+st.title("Demo de detección de arte")
 
-if image_data is not None:
-    # Open the image using PIL
-    image = Image.open(image_data)
-    
-    # Convert image to PNG format and store it as bytes in memory
-    img_byte_arr = io.BytesIO()
-    image.save(img_byte_arr, format='png')
-    img_byte_arr = img_byte_arr.getvalue()
-    
-    # Store the PNG byte array in session state
-    st.session_state['captured_image_png'] = img_byte_arr
-    st.success("PNG image stored temporarily for this session.")
+st.text("Modelos disponibles:")
 
-    # Display the image from the PNG byte array
-    st.image(image, caption='Captured Image')
- 
-# Processing the image for CNN model input
-if 'captured_image_png' in st.session_state:
-    # Load the PNG byte array as an image
-    image_from_bytes = Image.open(io.BytesIO(st.session_state['captured_image_png']))
-    
-    # Optionally convert the image to the format/size expected by the model
-    # For example, if your model expects 224x224 images:
-    processed_image = image_from_bytes.resize((224, 224))
-    
-    # Convert the image to an array if needed by your model
-    image_array = np.array(processed_image)
-    
-    # Placeholder for model prediction
-    # result = model.predict(image_array.reshape(1, 224, 224, 3))  # Adjust as per your model's input requirements
-    # st.write(f"Prediction result: {result}")
+# Configuración de gspread para conectar con Google Sheets
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+credentials = service_account.Credentials.from_service_account_info(
+    st.secrets["gcp_service_account"],
+    scopes=SCOPES
+)
+# Usar las credenciales para autenticarse con Google Sheets
+gc = gspread.authorize(credentials)
+sh = gc.open_by_key('1D8V_C7tUZ4qiNlZiba96a3jMDPlQ-tMFPTfuuJ3dEAw')
 
-    # Display processed image ready for model input
-    st.image(processed_image, caption='Processed Image Ready for CNN')
+# Construye el servicio de la API de Google Drive
+service = build('drive', 'v3', credentials=credentials)
+
+# ID del archivo en Google Drive que deseas descargar
+file_id = '1xIIzJsNCfuTpxAgXehy2r7QVEIsnl7Ks'
+request = service.files().get_media(fileId=file_id)
+fh = io.BytesIO()
+downloader = MediaIoBaseDownload(fh, request)
+done = False
+while done is False:
+    status, done = downloader.next_chunk()
+
+# Utiliza PIL para abrir la imagen desde el stream de bytes
+fh.seek(0)
+image = Image.open(fh)
+
+# Mostrar la imagen en Streamlit
+st.logo(image)
