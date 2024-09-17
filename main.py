@@ -44,6 +44,7 @@ st.logo(image)
 #--------------------------------------------------------------------------------------------------------
 # LOADING THE MODEL -------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------------
+FOLDER_ID = "1e89Hs6yvZWZ-4Rz0cmIc07GV3mYrBgWS"  # Your Google Drive Folder ID
 
 st.text("Modelos disponibles:")
 
@@ -62,7 +63,6 @@ files = list_files(service, FOLDER_ID)
 file_names = [file['name'] for file in files]
 selected_file = st.selectbox('Select a file:', file_names)
 
-FOLDER_ID = "1e89Hs6yvZWZ-4Rz0cmIc07GV3mYrBgWS"  # Your Google Drive Folder ID
 
 # Option to load and display the selected file
 if st.button('Load File'):
