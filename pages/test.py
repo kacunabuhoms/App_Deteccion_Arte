@@ -4,6 +4,11 @@ import io
 import torch
 from torchvision import models, transforms
 
+# Diccionario de clases
+class_names = {'CLUSTER': 0, 'DANGLER': 1, 'KIT COPETE': 2, 'KIT DANG BOTADERO': 3,
+               'MANTELETA': 4, 'MENU': 5, 'MP': 6, 'PC': 7, 'POSTER': 8,
+               'PRECIADOR': 9, 'REFRICALCO': 10, 'STICKER': 11, 'STOPPER': 12, 'V UN': 13}
+
 #--------------------------------------------------------------------------------------------------------
 # PAGE CONFIGURATION ------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------------
@@ -44,28 +49,46 @@ st.logo(image)
 
 
 #--------------------------------------------------------------------------------------------------------
-# PAGE CONFIGURATION ------------------------------------------------------------------------------------
+# TAKE THE IMAGE ----------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------------
+st.title("Real-Time Image Classification with ResNet50")
+# Capture an image from the camera
+captured_image = st.camera_input("Take a picture")
 
-# Dictionary of classes
-class_names = {
-    'CLUSTER': 0, 'DANGLER': 1, 'KIT COPETE': 2, 'KIT DANG BOTADERO': 3,
-    'MANTELETA': 4, 'MENU': 5, 'MP': 6, 'PC': 7, 'POSTER': 8,
-    'PRECIADOR': 9, 'REFRICALCO': 10, 'STICKER': 11, 'STOPPER': 12, 'V UN': 13
-}
+# Convert the captured image to a PIL Image
+if captured_image is not None:
+    image = Image.open(io.BytesIO(captured_image.getvalue()))
+    st.image(image, caption='Captured Image')
 
-# Load the model
-def load_model(model_file):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+
+
+#--------------------------------------------------------------------------------------------------------
+# LOAD MODEL --------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------
+# Cargar el modelo
+def load_model(model_path):
     model = models.resnet50()
     num_ftrs = model.fc.in_features
-    model.fc = torch.nn.Linear(num_ftrs, len(class_names))
-    model.load_state_dict(torch.load(model_file, map_location=device))
-    model.to(device)
+    num_classes = len(class_names)  # Ajustar al número de clases
+    model.fc = torch.nn.Linear(num_ftrs, num_classes)
+    model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
-    return model, device
+    return model
 
-# Function to add padding and make the image square
+model_path = "Weights_ResNet50_Full layers_v3.pth"
+model = load_model(model_path)
+
+
+
+
+#--------------------------------------------------------------------------------------------------------
+# PROCESS IMAGE -----------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------
+from torchvision import transforms
+
+# Función para agregar padding y hacer la imagen cuadrada
 def add_padding(img, size):
     old_width, old_height = img.size
     longest_edge = max(old_width, old_height)
@@ -75,7 +98,7 @@ def add_padding(img, size):
     padded_img.paste(img, (int(horizontal_padding), int(vertical_padding)))
     return padded_img.resize((size, size), Image.LANCZOS)
 
-# Transformations
+# Transformaciones
 transform = transforms.Compose([
     transforms.Lambda(lambda img: add_padding(img, 256)),
     transforms.CenterCrop(224),
@@ -84,26 +107,22 @@ transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-def predict_image(image, model, device):
-    img_t = transform(image)
-    img_t = img_t.unsqueeze(0).to(device)
+# Apply transformation
+if captured_image is not None:
+    input_tensor = transform(image)
+    input_batch = input_tensor.unsqueeze(0)  # Create a mini-batch as expected by the model
+
+
+
+
+
+#--------------------------------------------------------------------------------------------------------
+# CLASSIFY ----------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------
+if captured_image is not None:
     with torch.no_grad():
-        output = model(img_t)
-        _, predicted = torch.max(output, 1)
-    class_name = class_names[predicted.item()]
-    return class_name
+        output = model(input_batch)
+        # Assuming your model outputs a category index
+        predicted_category = output.argmax(1).item()
+        st.write(f'Predicted Category: {predicted_category}')
 
-# Streamlit app setup
-st.title('Real-Time Image Classification with ResNet50')
-camera_image = st.camera_input("Take a picture")
-
-if camera_image is not None:
-    image = Image.open(io.BytesIO(camera_image.getvalue()))
-    st.image(image, caption='Captured Image', use_column_width=True)
-
-    st.write("Loading model and classifying image...")
-    # Assume the model file is already handled by your API connection setup
-    model, device = load_model('/content/drive/MyDrive/Proyectos/Deteccion Arte/CNN/ResNet50/Modelo/Full_ResNet50_Ful layers_v3.pth')  # Ensure you adjust this path
-    
-    label = predict_image(image, model, device)
-    st.write(f'Prediction: {label}')
