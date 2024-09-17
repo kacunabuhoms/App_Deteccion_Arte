@@ -1,6 +1,7 @@
 import streamlit as st
 import gspread
 import io
+import torch
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
@@ -63,20 +64,20 @@ files = list_files(service, FOLDER_ID)
 file_names = [file['name'] for file in files]
 selected_file = st.selectbox('Select a file:', file_names)
 
-
-# Option to load and display the selected file
-if st.button('Load File'):
-    # Assuming these are text files or some readable format
-    file_id = next(file['id'] for file in files if file['name'] == selected_file)
+# Function to load .pth file into PyTorch model
+def load_model(file_id):
     request = service.files().get_media(fileId=file_id)
     fh = io.BytesIO()
     downloader = MediaIoBaseDownload(fh, request)
     done = False
-    try:
-        while done is False:
-            status, done = downloader.next_chunk()
-        fh.seek(0)
-        content = fh.read().decode()
-        st.text_area("File Content", content, height=300)
-    except Exception as e:
-        st.error("Failed to read file: " + str(e))
+    while done is False:
+        status, done = downloader.next_chunk()
+    fh.seek(0)
+    # Load the model state
+    model = torch.load(fh, map_location=torch.device('cpu'))  # Adjust as necessary
+    return model
+
+if st.button('Load Model'):
+    file_id = next(file['id'] for file in files if file['name'] == selected_file)
+    model = load_model(file_id)
+    st.write("Model loaded successfully!")
