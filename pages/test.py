@@ -66,7 +66,7 @@ st.logo(image)
 # LOAD MODEL --------------------------------------------------------------------------------------------
 #--------------------------------------------------------------------------------------------------------
 def load_model():
-    model_path = 'path_to_your_model.pth'
+    model_path = '../../../models/Full_ResNet50_Ful_layers_v3.pth'
     model = torch.load(model_path, map_location=torch.device('cpu'))
     model.eval()  # Set to evaluation mode
     return model
