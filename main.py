@@ -6,10 +6,11 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from PIL import Image
 
+#--------------------------------------------------------------------------------------------------------
+# PAGE CONFIGURATION ------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------
 
 st.title("Demo de detección de arte")
-
-st.text("Modelos disponibles:")
 
 # Configuración de gspread para conectar con Google Sheets
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
@@ -39,3 +40,26 @@ image = Image.open(fh)
 
 # Mostrar la imagen en Streamlit
 st.logo(image)
+
+#--------------------------------------------------------------------------------------------------------
+# LOADING THE MODEL -------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------
+
+st.text("Modelos disponibles:")
+
+# Function to list files
+def list_files(service, folder_id):
+    results = service.files().list(
+        q=f"'{folder_id}' in parents",
+        pageSize=10,
+        fields="nextPageToken, files(id, name)").execute()
+    items = results.get('files', [])
+    return items
+
+# Streamlit interface
+if st.button('Authenticate and List Files'):
+    folder_id = "1e89Hs6yvZWZ-4Rz0cmIc07GV3mYrBgWS"
+
+    files = list_files(service, folder_id)
+    for file in files:
+        st.write(f"{file['name']} ({file['id']})")
