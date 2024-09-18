@@ -1,95 +1,18 @@
-import streamlit as st
-import gspread
-import io
-import os
 import torch
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload
+from torchvision import models, transforms
 from PIL import Image
-from torchvision.transforms import v2 as transforms
-from torchvision import models
+
+# Establecer el dispositivo
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Diccionario de clases
 class_names = {'CLUSTER': 0, 'DANGLER': 1, 'KIT COPETE': 2, 'KIT DANG BOTADERO': 3,
                'MANTELETA': 4, 'MENU': 5, 'MP': 6, 'PC': 7, 'POSTER': 8,
                'PRECIADOR': 9, 'REFRICALCO': 10, 'STICKER': 11, 'STOPPER': 12, 'V UN': 13}
 
-#--------------------------------------------------------------------------------------------------------
-# PAGE CONFIGURATION ------------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------------------------------
+# Inversión del diccionario para obtener nombres por índice
+index_to_class = {v: k for k, v in class_names.items()}
 
-st.title("Demo de detección de arte")
-
-# Configuración de gspread para conectar con Google Sheets
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-credentials = service_account.Credentials.from_service_account_info(
-    st.secrets["gcp_service_account"],
-    scopes=SCOPES
-)
-# Usar las credenciales para autenticarse con Google Sheets
-gc = gspread.authorize(credentials)
-sh = gc.open_by_key('1D8V_C7tUZ4qiNlZiba96a3jMDPlQ-tMFPTfuuJ3dEAw')
-
-# Construye el servicio de la API de Google Drive
-service = build('drive', 'v3', credentials=credentials)
-
-# ID del archivo en Google Drive que deseas descargar
-file_id = '1xIIzJsNCfuTpxAgXehy2r7QVEIsnl7Ks'
-request = service.files().get_media(fileId=file_id)
-fh = io.BytesIO()
-downloader = MediaIoBaseDownload(fh, request)
-done = False
-while done is False:
-    status, done = downloader.next_chunk()
-
-# Utiliza PIL para abrir la imagen desde el stream de bytes
-fh.seek(0)
-image = Image.open(fh)
-
-# Mostrar la imagen en Streamlit
-st.logo(image)
-
-
-
-
-
-#--------------------------------------------------------------------------------------------------------
-# TAKE THE IMAGE ----------------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------------------------------
-
-
-
-
-
-
-#--------------------------------------------------------------------------------------------------------
-# LOAD MODEL --------------------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------------------------------
-def load_model():
-    # Update with the correct relative path from your Streamlit app's location
-    model_path = '../../../models/Full_ResNet50_Ful_layers_v3.pth'
-    abs_path = os.path.abspath(model_path)
-
-    # Debugging output
-    print("Absolute path:", abs_path)
-    print("File exists:", os.path.exists(abs_path))
-
-    if os.path.exists(abs_path):
-        model = torch.load(abs_path, map_location=torch.device('cpu'))
-        model.eval()
-        return model
-    else:
-        raise FileNotFoundError(f"Model file not found at {abs_path}")
-
-model = load_model()
-
-
-
-
-#--------------------------------------------------------------------------------------------------------
-# PROCESS IMAGE -----------------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------------------------------
 # Función para agregar padding y hacer la imagen cuadrada
 def add_padding(img, size):
     old_width, old_height = img.size
@@ -101,38 +24,43 @@ def add_padding(img, size):
     return padded_img.resize((size, size), Image.LANCZOS)
 
 # Transformaciones
-def transform_image(image):
-    transform = transforms.Compose([
-        transforms.Lambda(lambda img: add_padding(img, 256)),
-        transforms.CenterCrop(224),
-        transforms.PILToTensor(),
-        transforms.ConvertImageDtype(torch.float32),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    return transform(image).unsqueeze(0)
+transform = transforms.Compose([
+    transforms.Lambda(lambda img: add_padding(img, 256)),
+    transforms.CenterCrop(224),
+    transforms.PILToTensor(),
+    transforms.ConvertImageDtype(torch.float32),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
 
+# Cargar el modelo
+def load_model(model_path):
+    model = models.resnet50()
+    num_ftrs = model.fc.in_features
+    num_classes = len(class_names)  # Ajustar al número de clases
+    model.fc = torch.nn.Linear(num_ftrs, num_classes)
+    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.eval()
+    model.to(device)
+    return model
 
+model_path = 'models/Full_ResNet50_Ful layers_v3.pth'
+model = load_model(model_path)
 
+# Función para predecir y devolver la clase y la probabilidad
+def predict_class(image_path):
+    image = Image.open(image_path).convert("RGB")
+    image_tensor = transform(image).unsqueeze(0).to(device)
 
-
-#--------------------------------------------------------------------------------------------------------
-# CLASSIFY ----------------------------------------------------------------------------------------------
-#--------------------------------------------------------------------------------------------------------
-def predict(image, model):
-    tensor = transform_image(image)
     with torch.no_grad():
-        outputs = model(tensor)
-        _, predicted = torch.max(outputs, 1)
-    return predicted.item()  # Assuming classification task
+        output = model(image_tensor)
+        probabilities = torch.nn.functional.softmax(output[0], dim=0)
+        predicted_class_index = probabilities.argmax().item()
+        predicted_class_name = index_to_class[predicted_class_index]
+        predicted_probability = probabilities[predicted_class_index].item()
 
+    return predicted_class_name, predicted_probability
 
-st.title('Image Classification with PyTorch')
-
-uploaded_file = st.file_uploader("Choose an image...", type="png")
-if uploaded_file is not None:
-    image = Image.open(uploaded_file)
-    st.image(image, caption='Uploaded Image', use_column_width=True)
-    st.write("Classifying...")
-    label = predict(image, model)
-    st.write(f'Prediction: {label}')
-
+# Ejemplo de uso
+image_path = 'test/cluster ejem.png'
+predicted_class_name, predicted_probability = predict_class(image_path)
+print(f'Clase Predicha: {predicted_class_name}, Probabilidad: {predicted_probability:.4f}')
