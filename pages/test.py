@@ -12,7 +12,7 @@ index_to_class = {v: k for k, v in class_names.items()}
 model_path = 'models/Full_ResNet50_Ful layers_v3.pth'
 
 # Load the model with new Streamlit caching
-@st.experimental_memo
+@st.cache_resource
 def load_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = torch.load(model_path, map_location=device)
