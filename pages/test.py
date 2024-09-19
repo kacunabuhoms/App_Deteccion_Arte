@@ -55,12 +55,17 @@ def predict(image_file):
 # Streamlit UI
 st.title('Image Classification App')
 
-uploaded_file = st.file_uploader("Choose an image...", type=["png", "jpg", "jpeg"])
+uploaded_file = st.file_uploader("Choose an image...", type=["png", "jpg", "jpeg"], key="file_uploader")
+
 if uploaded_file is not None:
-    # Display the uploaded image directly
     image = Image.open(uploaded_file)
     st.image(image, caption='Uploaded Image', use_column_width=True)
     if st.button('Predict'):
         uploaded_file.seek(0)  # Reset file pointer
         result = predict(uploaded_file)
         st.write(result)
+        st.session_state['uploaded_file'] = None  # Clear the uploaded file
+
+if st.button('Start Again'):
+    st.experimental_rerun()  # This will rerun the app from the top, resetting the state
+
