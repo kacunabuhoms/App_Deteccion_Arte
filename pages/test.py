@@ -7,8 +7,14 @@ import os
 # Define the path for the model
 model_path = 'models/Full_ResNet50_Ful layers_v3.pth'  # Adjust path if necessary based on your repository structure
 
-# Load the model
-@st.cache(allow_output_mutation=True)
+# Define class names outside of the model for accessibility
+class_names = {'CLUSTER': 0, 'DANGLER': 1, 'KIT COPETE': 2, 'KIT DANG BOTADERO': 3,
+               'MANTELETA': 4, 'MENU': 5, 'MP': 6, 'PC': 7, 'POSTER': 8,
+               'PRECIADOR': 9, 'REFRICALCO': 10, 'STICKER': 11, 'STOPPER': 12, 'V UN': 13}
+index_to_class = {v: k for k, v in class_names.items()}  # To convert class indices back to labels
+
+# Load the model using Streamlit's new caching method
+@st.experimental_singleton
 def load_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = torch.load(model_path, map_location=device)
@@ -44,7 +50,7 @@ def predict(image_path):
         output = model(image_tensor)
         probabilities = torch.nn.functional.softmax(output[0], dim=0)
         predicted_class_index = probabilities.argmax().item()
-        predicted_class_name = {v: k for k, v in model.class_names.items()}[predicted_class_index]
+        predicted_class_name = index_to_class[predicted_class_index]
         predicted_probability = probabilities[predicted_class_index].item()
     return f'Predicted Class: {predicted_class_name} (Probability: {predicted_probability:.4f})'
 
@@ -53,10 +59,12 @@ st.title('Image Classification App')
 
 uploaded_file = st.file_uploader("Choose an image...", type=["png", "jpg", "jpeg"])
 if uploaded_file is not None:
-    image_path = uploaded_file.name
-    with open(image_path, "wb") as f:
+    # Save the uploaded file to a temporary file and display it
+    temp_file = os.path.join("temp", uploaded_file.name)
+    with open(temp_file, "wb") as f:
         f.write(uploaded_file.getbuffer())
-    st.image(image_path, caption='Uploaded Image', use_column_width=True)
+    st.image(temp_file, caption='Uploaded Image', use_column_width=True)
+
     if st.button('Predict'):
-        result = predict(image_path)
+        result = predict(temp_file)
         st.write(result)
