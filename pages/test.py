@@ -1,26 +1,17 @@
 import streamlit as st
 import torch
-from torchvision import models, transforms
+from torchvision import transforms
 from PIL import Image
 import os
 
 # Define the path for the model
-model_path = 'Weights_ResNet50_Full_layers_v3.pth'  # Adjust path if necessary based on your repository structure
-
-# Diccionario de clases
-class_names = {'CLUSTER': 0, 'DANGLER': 1, 'KIT COPETE': 2, 'KIT DANG BOTADERO': 3,
-               'MANTELETA': 4, 'MENU': 5, 'MP': 6, 'PC': 7, 'POSTER': 8,
-               'PRECIADOR': 9, 'REFRICALCO': 10, 'STICKER': 11, 'STOPPER': 12, 'V UN': 13}
+model_path = 'models/Full_ResNet50_Ful layers_v3.pth'  # Adjust path if necessary based on your repository structure
 
 # Load the model
 @st.cache(allow_output_mutation=True)
 def load_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = models.resnet50(pretrained=False)
-    num_ftrs = model.fc.in_features
-    num_classes = len(class_names)
-    model.fc = torch.nn.Linear(num_ftrs, num_classes)
-    model.load_state_dict(torch.load(model_path, map_location=device))
+    model = torch.load(model_path, map_location=device)
     model.eval()
     model.to(device)
     return model, device
@@ -53,7 +44,7 @@ def predict(image_path):
         output = model(image_tensor)
         probabilities = torch.nn.functional.softmax(output[0], dim=0)
         predicted_class_index = probabilities.argmax().item()
-        predicted_class_name = class_names[predicted_class_index]
+        predicted_class_name = {v: k for k, v in model.class_names.items()}[predicted_class_index]
         predicted_probability = probabilities[predicted_class_index].item()
     return f'Predicted Class: {predicted_class_name} (Probability: {predicted_probability:.4f})'
 
