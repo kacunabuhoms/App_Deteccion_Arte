@@ -67,5 +67,5 @@ if uploaded_file is not None:
         st.session_state['uploaded_file'] = None  # Clear the uploaded file
 
 if st.button('Start Again'):
-    st.experimental_rerun()  # This will rerun the app from the top, resetting the state
+    st.rerun()  # This will rerun the app from the top, resetting the state
 
