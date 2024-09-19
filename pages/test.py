@@ -2,19 +2,17 @@ import streamlit as st
 import torch
 from torchvision import transforms
 from PIL import Image
-import os
+import io
 
-# Define the path for the model
-model_path = 'models/Full_ResNet50_Ful layers_v3.pth'  # Adjust path if necessary based on your repository structure
-
-# Define class names outside of the model for accessibility
+# Define class names and the path for the model
 class_names = {'CLUSTER': 0, 'DANGLER': 1, 'KIT COPETE': 2, 'KIT DANG BOTADERO': 3,
                'MANTELETA': 4, 'MENU': 5, 'MP': 6, 'PC': 7, 'POSTER': 8,
                'PRECIADOR': 9, 'REFRICALCO': 10, 'STICKER': 11, 'STOPPER': 12, 'V UN': 13}
-index_to_class = {v: k for k, v in class_names.items()}  # To convert class indices back to labels
+index_to_class = {v: k for k, v in class_names.items()}
+model_path = 'models/Full_ResNet50_Ful layers_v3.pth'
 
-# Load the model using Streamlit's new caching method
-@st.experimental_singleton
+# Load the model with new Streamlit caching
+@st.experimental_memo
 def load_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = torch.load(model_path, map_location=device)
@@ -43,8 +41,8 @@ transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-def predict(image_path):
-    image = Image.open(image_path).convert("RGB")
+def predict(image_file):
+    image = Image.open(image_file).convert("RGB")
     image_tensor = transform(image).unsqueeze(0).to(device)
     with torch.no_grad():
         output = model(image_tensor)
@@ -59,12 +57,10 @@ st.title('Image Classification App')
 
 uploaded_file = st.file_uploader("Choose an image...", type=["png", "jpg", "jpeg"])
 if uploaded_file is not None:
-    # Save the uploaded file to a temporary file and display it
-    temp_file = os.path.join("temp", uploaded_file.name)
-    with open(temp_file, "wb") as f:
-        f.write(uploaded_file.getbuffer())
-    st.image(temp_file, caption='Uploaded Image', use_column_width=True)
-
+    # Display the uploaded image directly
+    image = Image.open(uploaded_file)
+    st.image(image, caption='Uploaded Image', use_column_width=True)
     if st.button('Predict'):
-        result = predict(temp_file)
+        uploaded_file.seek(0)  # Reset file pointer
+        result = predict(uploaded_file)
         st.write(result)
