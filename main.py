@@ -3,6 +3,7 @@ import torch
 from torchvision import transforms
 from PIL import Image
 import io
+import pandas as pd
 
 # Define class names and the path for the model
 class_names = {'CLUSTER': 0, 'DANGLER': 1, 'KIT COPETE': 2, 'KIT DANG BOTADERO': 3,
@@ -47,15 +48,14 @@ def predict(image_file):
     with torch.no_grad():
         output = model(image_tensor)
         probabilities = torch.nn.functional.softmax(output[0], dim=0)
-        predicted_class_index = probabilities.argmax().item()
-        predicted_class_name = index_to_class[predicted_class_index]
-        predicted_probability = probabilities[predicted_class_index].item()
-    return f'Predicted Class: {predicted_class_name} (Probability: {predicted_probability:.4f})'
+        # Get top three predictions
+        top_probs, top_lbls = torch.topk(probabilities, 3)
+        predicted_classes = [(index_to_class[idx.item()], prob.item()) for idx, prob in zip(top_lbls, top_probs)]
+    return predicted_classes
 
 # Streamlit UI
 st.title('Image Classification App')
 
-#uploaded_file = st.file_uploader("Choose an image...", type=["png", "jpg", "jpeg"], key="file_uploader")
 uploaded_file = st.camera_input("Take a picture", key="camera_input")
 
 if uploaded_file is not None:
@@ -63,7 +63,7 @@ if uploaded_file is not None:
     st.image(image, caption='Uploaded Image', use_column_width=True)
     if st.button('Predict'):
         uploaded_file.seek(0)  # Reset file pointer
-        result = predict(uploaded_file)
-        st.write(result)
-        st.session_state['uploaded_file'] = None  # Clear the uploaded file
-
+        predictions = predict(uploaded_file)
+        # Display predictions as a table
+        df = pd.DataFrame(predictions, columns=['Class', 'Probability'])
+        st.table(df)
