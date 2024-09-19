@@ -55,7 +55,8 @@ def predict(image_file):
 # Streamlit UI
 st.title('Image Classification App')
 
-uploaded_file = st.file_uploader("Choose an image...", type=["png", "jpg", "jpeg"], key="file_uploader")
+#uploaded_file = st.file_uploader("Choose an image...", type=["png", "jpg", "jpeg"], key="file_uploader")
+uploaded_file = st.camera_input("Take a picture", key="camera_input")
 
 if uploaded_file is not None:
     image = Image.open(uploaded_file)
